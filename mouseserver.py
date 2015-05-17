@@ -1,4 +1,5 @@
 #!/usr/bin/python2
+# -*- coding: utf-8 -*-
 
 import socket
 import os
@@ -7,7 +8,9 @@ import SocketServer
 import time
 import Xlib.keysymdef.miscellany as xkeysyms
 import Xlib.keysymdef.xf86 as xf86keysyms
+import Xlib.keysymdef.latin1 as l1keysyms
 import Xlib.error
+import Xlib.XK
 from Xlib import X
 from Xlib.display import Display
 from Xlib.ext.xtest import fake_input
@@ -223,8 +226,26 @@ def dragEvent(display, eventname, event, arg):
 
 
 def utf8Event(display, eventname, event, arg):
+    arg = arg.decode('utf-8')
     for k in arg:
-        print("UTF8 {}".format(k))
+        keycodes = display.keysym_to_keycodes(ord(k))
+        if len(keycodes) == 0:
+            continue
+
+        keycode = keycodes[0][0]
+        if keycodes[0][1] == 1:  # ie this keycode is in group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
+            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(xkeysyms.XK_Shift_L))
+            display.sync()
+
+        fake_input(display, X.KeyPress, detail=keycode)
+        display.sync()
+
+        fake_input(display, X.KeyRelease, detail=keycode)
+        display.sync()
+
+        if keycodes[0][1] == 1:
+            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(xkeysyms.XK_Shift_L))
+            display.sync()
 
 
 def powerEvent(display, eventname, event, arg):
@@ -368,6 +389,7 @@ def process(buf, display):
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
+        print "HOO"
         display = None
         self.request.send('Linux!')
 

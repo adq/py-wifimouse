@@ -6,9 +6,9 @@ import os
 import threading
 import SocketServer
 import time
-import Xlib.keysymdef.miscellany as xkeysyms
+import Xlib.keysymdef.miscellany as misckeysyms
 import Xlib.keysymdef.xf86 as xf86keysyms
-import Xlib.keysymdef.latin1 as l1keysyms
+import Xlib.keysymdef.latin1 as latin1keysyms
 import Xlib.error
 import Xlib.XK
 from Xlib import X
@@ -16,129 +16,53 @@ from Xlib.display import Display
 from Xlib.ext.xtest import fake_input
 
 
-keycodes = {
-    "RTN": xkeysyms.XK_Return,
-    "BAS": xkeysyms.XK_BackSpace,
-    "TAB": xkeysyms.XK_Tab,
-    "SPC": ' ',
-    " ": ' ',
-    "CAP": xkeysyms.XK_Caps_Lock,
-    "a": 'a',
-    "0": '0',
-    "1": '1',
-    "2": '2',
-    "3": '3',
-    "4": '4',
-    "5": '5',
-    "6": '6',
-    "7": '7',
-    "8": '8',
-    "9": '9',
-    "-": '-',
-    "=": '=',
-    "`": '`',
-    ".": '.',
-    ",": ',',
-    ":": ':',
-    "\"": '"',
-    "/": '/',
-    "b": 'b',
-    "c": 'c',
-    "d": 'd',
-    "e": 'e',
-    "f": 'f',
-    "g": 'g',
-    "h": 'h',
-    "i": 'i',
-    "j": 'j',
-    "k": 'k',
-    "l": 'l',
-    "m": 'm',
-    "n": 'n',
-    "o": 'o',
-    "p": 'p',
-    "q": 'q',
-    "r": 'r',
-    "s": 's',
-    "t": 't',
-    "u": 'u',
-    "v": 'v',
-    "w": 'w',
-    "x": 'x',
-    "y": 'y',
-    "z": 'z',
-
-    "?": 63,
-    "!": '!',
-    "'": '\'',
-    "@": '@',
-    "+": '+',
-    "-": '-',
-    "*": '*',
-    "/": '/',
-    "\"": '"',
-    ";": ';',
-    "&": '&',
-    ":": ':',
-    "#": '#',
-    "(": '(',
-    ")": ')',
-    "%": '%',
-    "$": '$',
-    "~": '~',
-    "[": '[',
-    "]": ']',
-    "\\": '\\',
-    "|": '|',
-    "{": '{',
-    "}": '}',
-    "<": '<',
-    ">": '>',
-    "_": '_',
-
-    "NUM_DIVIDE": xkeysyms.XK_KP_Divide,
-    "NUM_MULTIPLY": xkeysyms.XK_KP_Multiply,
-    "NUM_SUBTRACT": xkeysyms.XK_KP_Subtract,
-    "NUM_ADD": xkeysyms.XK_KP_Add,
-    "Enter": xkeysyms.XK_KP_Enter,
-    "NUM_DECIMAL": xkeysyms.XK_KP_Decimal,
-    "NUM0": xkeysyms.XK_KP_0,
-    "NUM1": xkeysyms.XK_KP_1,
-    "NUM2": xkeysyms.XK_KP_2,
-    "NUM3": xkeysyms.XK_KP_3,
-    "NUM4": xkeysyms.XK_KP_4,
-    "NUM5": xkeysyms.XK_KP_5,
-    "NUM6": xkeysyms.XK_KP_6,
-    "NUM7": xkeysyms.XK_KP_7,
-    "NUM8": xkeysyms.XK_KP_8,
-    "NUM9": xkeysyms.XK_KP_9,
-
-    "ESC": xkeysyms.XK_Escape,
-    "DELETE": xkeysyms.XK_Delete,
-    "HOME": xkeysyms.XK_Home,
-    "END": xkeysyms.XK_End,
-    "PGUP": xkeysyms.XK_Page_Up,
-    "PGDN": xkeysyms.XK_Page_Down,
-    "UP": xkeysyms.XK_Up,
-    "DW": xkeysyms.XK_Down,
-    "RT": xkeysyms.XK_Right,
-    "LF": xkeysyms.XK_Left,
-    "F1": xkeysyms.XK_F1,
-    "F2": xkeysyms.XK_F2,
-    "F3": xkeysyms.XK_F3,
-    "F4": xkeysyms.XK_F4,
-    "F5": xkeysyms.XK_F5,
-    "F6": xkeysyms.XK_F6,
-    "F7": xkeysyms.XK_F7,
-    "F8": xkeysyms.XK_F8,
-    "F9": xkeysyms.XK_F9,
-    "F10": xkeysyms.XK_F10,
-    "F11": xkeysyms.XK_F11,
-    "F12": xkeysyms.XK_F12,
-    "CTRL": xkeysyms.XK_Control_L,
-    "ALT": xkeysyms.XK_Alt_L,
-    "SHIFT": xkeysyms.XK_Shift_L,
-
+keyEventMap = {
+    "RTN": misckeysyms.XK_Return,
+    "BAS": misckeysyms.XK_BackSpace,
+    "TAB": misckeysyms.XK_Tab,
+    "SPC": latin1keysyms.XK_space,
+    "CAP": misckeysyms.XK_Caps_Lock,
+    "NUM_DIVIDE": misckeysyms.XK_KP_Divide,
+    "NUM_MULTIPLY": misckeysyms.XK_KP_Multiply,
+    "NUM_SUBTRACT": misckeysyms.XK_KP_Subtract,
+    "NUM_ADD": misckeysyms.XK_KP_Add,
+    "Enter": misckeysyms.XK_KP_Enter,
+    "NUM_DECIMAL": misckeysyms.XK_KP_Decimal,
+    "NUM0": misckeysyms.XK_KP_0,
+    "NUM1": misckeysyms.XK_KP_1,
+    "NUM2": misckeysyms.XK_KP_2,
+    "NUM3": misckeysyms.XK_KP_3,
+    "NUM4": misckeysyms.XK_KP_4,
+    "NUM5": misckeysyms.XK_KP_5,
+    "NUM6": misckeysyms.XK_KP_6,
+    "NUM7": misckeysyms.XK_KP_7,
+    "NUM8": misckeysyms.XK_KP_8,
+    "NUM9": misckeysyms.XK_KP_9,
+    "ESC": misckeysyms.XK_Escape,
+    "DELETE": misckeysyms.XK_Delete,
+    "HOME": misckeysyms.XK_Home,
+    "END": misckeysyms.XK_End,
+    "PGUP": misckeysyms.XK_Page_Up,
+    "PGDN": misckeysyms.XK_Page_Down,
+    "UP": misckeysyms.XK_Up,
+    "DW": misckeysyms.XK_Down,
+    "RT": misckeysyms.XK_Right,
+    "LF": misckeysyms.XK_Left,
+    "F1": misckeysyms.XK_F1,
+    "F2": misckeysyms.XK_F2,
+    "F3": misckeysyms.XK_F3,
+    "F4": misckeysyms.XK_F4,
+    "F5": misckeysyms.XK_F5,
+    "F6": misckeysyms.XK_F6,
+    "F7": misckeysyms.XK_F7,
+    "F8": misckeysyms.XK_F8,
+    "F9": misckeysyms.XK_F9,
+    "F10": misckeysyms.XK_F10,
+    "F11": misckeysyms.XK_F11,
+    "F12": misckeysyms.XK_F12,
+    "CTRL": misckeysyms.XK_Control_L,
+    "ALT": misckeysyms.XK_Alt_L,
+    "SHIFT": misckeysyms.XK_Shift_L,
     "VOLUMEDN": xf86keysyms.XK_XF86_AudioLowerVolume,
     "VOLUMEUP": xf86keysyms.XK_XF86_AudioRaiseVolume,
     "MUTE": xf86keysyms.XK_XF86_AudioMute,
@@ -199,20 +123,42 @@ def mouseEvent(display, eventname, event, arg):
 def keyEvent(display, eventname, event, arg):
     if arg.startswith('[R]'):
         bits = arg[4:].split(' ')
-        keys = keycodes.get(bits[0])
+        raw = bits[0]
 
-        state = None
         if bits[1] == 'd':
             state = 'down'
         elif bits[1] == 'u':
             state = 'up'
-
-        if keys is not None:
-            print("KEY {} {}".format(keys, state))
+        else:
+            raise Exception('Unknown keyevent state {}'.format(arg))
 
     else:
-        keys = keycodes.get(arg)
-        print("KEY {}".format(keys))
+        raw = arg
+        state = 'downup'
+
+    keysym = keyEventMap.get(raw)
+    if keysym is None:
+        keysym = ord(raw)
+    keycodes = display.keysym_to_keycodes(keysym)
+    if len(keycodes) == 0:
+        return
+    keycode = keycodes[0][0]
+
+    if 'down' in state:
+        if keycodes[0][1] == 1:  # ie this keycode is in group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
+            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
+
+        fake_input(display, X.KeyPress, detail=keycode)
+        display.sync()
+
+    if 'up' in state:
+        fake_input(display, X.KeyRelease, detail=keycode)
+        display.sync()
+
+        if keycodes[0][1] == 1:
+            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
 
 
 def dragEvent(display, eventname, event, arg):
@@ -234,7 +180,7 @@ def utf8Event(display, eventname, event, arg):
 
         keycode = keycodes[0][0]
         if keycodes[0][1] == 1:  # ie this keycode is in group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
-            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(xkeysyms.XK_Shift_L))
+            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
             display.sync()
 
         fake_input(display, X.KeyPress, detail=keycode)
@@ -244,7 +190,7 @@ def utf8Event(display, eventname, event, arg):
         display.sync()
 
         if keycodes[0][1] == 1:
-            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(xkeysyms.XK_Shift_L))
+            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
             display.sync()
 
 
@@ -261,7 +207,7 @@ def cmdtableEvent(display, eventname, event, arg):
 
 
 def hardkeyEvent(display, eventname, event, arg):
-    keys = keycodes.get(eventname.upper())
+    keys = keyEventMap.get(eventname.upper())
     if keys is None:
         print("Unknown command: {}".format(eventname))
     else:
@@ -269,14 +215,14 @@ def hardkeyEvent(display, eventname, event, arg):
 
 
 browserCommands = {
-    'forward': [xkeysyms.XK_Alt_L, xkeysyms.XK_Right],
-    'back': [xkeysyms.XK_Alt_L, xkeysyms.XK_Left],
-    'home': [xkeysyms.XK_Alt_L, xkeysyms.XK_Home],
-    'search': [xkeysyms.XK_Control_L, 'k'],
-    'refresh': [xkeysyms.XK_Control_L, 'r'],
-    'stop': [xkeysyms.XK_Escape],
-    'favorite': [xkeysyms.XK_Control_L, 'b'],
-    'newtab': [xkeysyms.XK_Control_L, 't'],
+    'forward': [misckeysyms.XK_Alt_L, misckeysyms.XK_Right],
+    'back': [misckeysyms.XK_Alt_L, misckeysyms.XK_Left],
+    'home': [misckeysyms.XK_Alt_L, misckeysyms.XK_Home],
+    'search': [misckeysyms.XK_Control_L, 'k'],
+    'refresh': [misckeysyms.XK_Control_L, 'r'],
+    'stop': [misckeysyms.XK_Escape],
+    'favorite': [misckeysyms.XK_Control_L, 'b'],
+    'newtab': [misckeysyms.XK_Control_L, 't'],
 }
 
 windowCommands = {
@@ -304,8 +250,8 @@ mediaCommands = {
 }
 
 zoomCommands = {
-    'in': [xkeysyms.XK_Control_L, '+'],
-    'out': [xkeysyms.XK_Control_L, '-'],
+    'in': [misckeysyms.XK_Control_L, '+'],
+    'out': [misckeysyms.XK_Control_L, '-'],
 }
 
 slideCommands = {

@@ -69,6 +69,39 @@ keyEventMap = {
 }
 
 
+def x11Key(display, state, raw):
+    if type(raw) in (str, unicode):
+        keysym = keyEventMap.get(raw)
+        if keysym is None:
+            try:
+                keysym = ord(raw)
+            except TypeError:
+                raise Exception('Unknown key command {}'.format(raw))
+    else:
+        keysym = raw
+
+    keycodes = display.keysym_to_keycodes(keysym)
+    if len(keycodes) == 0:
+        return
+    keycode = keycodes[0]
+
+    if 'down' in state:
+        if keycode[1] == 1:  # ie this keycode is in modmap group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
+            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
+
+        fake_input(display, X.KeyPress, detail=keycode[0])
+        display.sync()
+
+    if 'up' in state:
+        fake_input(display, X.KeyRelease, detail=keycode[0])
+        display.sync()
+
+        if keycode[1] == 1:
+            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
+
+
 def mouseEvent(display, eventname, event, arg):
     bits = arg.split(' ')
     if bits[0] == 'm':
@@ -120,36 +153,6 @@ def mouseEvent(display, eventname, event, arg):
         raise Exception("Unknown mouse event {}".format(arg))
 
 
-def x11Key(display, state, raw):
-    keysym = keyEventMap.get(raw)
-    if keysym is None:
-        try:
-            keysym = ord(raw)
-        except TypeError:
-            raise Exception('Unknown key command {}'.format(raw))
-
-    keycodes = display.keysym_to_keycodes(keysym)
-    if len(keycodes) == 0:
-        return
-    keycode = keycodes[0]
-
-    if 'down' in state:
-        if keycode[1] == 1:  # ie this keycode is in modmap group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
-            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
-
-        fake_input(display, X.KeyPress, detail=keycode[0])
-        display.sync()
-
-    if 'up' in state:
-        fake_input(display, X.KeyRelease, detail=keycode[0])
-        display.sync()
-
-        if keycode[1] == 1:
-            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
-
-
 def keyEvent(display, eventname, event, arg):
     if arg.startswith('[R]'):
         bits = arg[4:].split(' ')
@@ -171,12 +174,19 @@ def keyEvent(display, eventname, event, arg):
 
 def dragEvent(display, eventname, event, arg):
     if arg == 'start':
-        print("DRAG START")
+        fake_input(display, X.ButtonPress, detail=X.Button1)
+        display.sync()
+
     elif arg == 'end':
-        print("DRAG END")
+        fake_input(display, X.ButtonRelease, detail=X.Button1)
+        display.sync()
+
     else:
         bits = arg.split(' ')
-        print("DRAG {} {}".format(int(bits[0]), int(bits[1])))
+        x = int(bits[1])
+        y = int(bits[2])
+        fake_input(display, X.MotionNotify, x=x, y=y, detail=1)  # detail=1 => relative motion event
+        display.sync()
 
 
 def utf8Event(display, eventname, event, arg):
@@ -185,16 +195,39 @@ def utf8Event(display, eventname, event, arg):
         x11Key(display, 'downup', k)
 
 
+def slideEvent(display, eventname, event, arg):
+    if arg == ' begin':
+        x11Key(display, 'down', misckeysyms.XK_Alt_L)
+
+    elif arg == 'left':
+        x11Key(display, 'up', misckeysyms.XK_Shift_L)
+        x11Key(display, 'downup', misckeysyms.XK_Tab)
+
+    elif arg == 'right':
+        x11Key(display, 'down', misckeysyms.XK_Shift_L)
+        x11Key(display, 'downup', misckeysyms.XK_Tab)
+
+    elif arg == ' end':
+        x11Key(display, 'up', misckeysyms.XK_Shift_L)
+        x11Key(display, 'up', misckeysyms.XK_Alt_L)
+
+    else:
+        raise Exception("Unknown slide command {}".format(arg))
+
+
 def powerEvent(display, eventname, event, arg):
     print("Power command {}".format(eventname))
 
 
 def cmdtableEvent(display, eventname, event, arg):
-    keys = event['cmdtable'].get(arg)
-    if keys is None:
-        print("Unknown command: {}/{}".format(event, arg))
-    else:
-        print("Command: {}/{}".format(eventname, arg))
+    keyseq = event['cmdtable'].get(arg)
+    if keyseq is None:
+        raise Exception("Unknown command: {}/{}".format(event, arg))
+
+    for k in keyseq:
+        x11Key(display, 'down', k)
+    for k in reversed(keyseq):
+        x11Key(display, 'up', k)
 
 
 def hardkeyEvent(display, eventname, event, arg):
@@ -241,37 +274,31 @@ zoomCommands = {
     'out': [misckeysyms.XK_Control_L, '-'],
 }
 
-slideCommands = {
-    ' begin': [],  # leading space intentional
-    'left': [],
-    'right': [],
-    ' end': [],  # leading space intentional
+events = {
+    'mos': {'fn': mouseEvent, 'term': 'length'},
+    'key': {'fn': keyEvent, 'term': 'length'},
+    'drag': {'fn': dragEvent, 'skip': 1, 'term': 'nl'},
+    'utf8': {'fn': utf8Event, 'skip': 1, 'term': 'nl'},
+    'slide': {'fn': slideEvent, 'term': 'nl'},
+
+    'media': {'cmdtable': mediaCommands, 'skip': 1, 'term': 'nl'},
+    'zoom': {'cmdtable': zoomCommands, 'term': 'nl'},
+    'browser': {'cmdtable': browserCommands, 'skip': 1, 'term': 'nl'},
+    'window': {'cmdtable': windowCommands, 'skip': 1, 'term': 'nl'},
+    'ppt': {'cmdtable': pptCommands, 'skip': 1, 'term': 'nl'},
+
+    'logoff': {'fn': powerEvent, 'term': 'nl'},
+    'sleep': {'fn': powerEvent, 'term': 'nl'},
+    'poweroff': {'fn': powerEvent, 'term': 'nl'},
+    'reboot': {'fn': powerEvent, 'term': 'nl'},
+    'shutdown': {'fn': powerEvent, 'term': 'nl'},
+
+    'mute': {'fn': hardkeyEvent, 'term': 'nl'},
+    'volumedn': {'fn': hardkeyEvent, 'term': 'nl'},
+    'volumeup': {'fn': hardkeyEvent, 'term': 'nl'},
+    'rtn': {'fn': hardkeyEvent, 'term': 'nl'},
+    'bas': {'fn': hardkeyEvent, 'term': 'nl'},
 }
-
-events= {'mos': {'fn': mouseEvent, 'term': 'length'},
-         'key': {'fn': keyEvent, 'term': 'length'},
-         'drag': {'fn': dragEvent, 'skip': 1, 'term': 'nl'},
-         'utf8': {'fn': utf8Event, 'skip': 1, 'term': 'nl'},
-         'slide': {'cmdtable': slideCommands, 'term': 'nl'},
-
-         'media': {'cmdtable': mediaCommands, 'skip': 1, 'term': 'nl'},
-         'zoom': {'cmdtable': zoomCommands, 'term': 'nl'},
-         'browser': {'cmdtable': browserCommands, 'skip': 1, 'term': 'nl'},
-         'window': {'cmdtable': windowCommands, 'skip': 1, 'term': 'nl'},
-         'ppt': {'cmdtable': pptCommands, 'skip': 1, 'term': 'nl'},
-
-         'logoff': {'fn': powerEvent, 'term': 'nl'},
-         'sleep': {'fn': powerEvent, 'term': 'nl'},
-         'poweroff': {'fn': powerEvent, 'term': 'nl'},
-         'reboot': {'fn': powerEvent, 'term': 'nl'},
-         'shutdown': {'fn': powerEvent, 'term': 'nl'},
-
-         'mute': {'fn': hardkeyEvent, 'term': 'nl'},
-         'volumedn': {'fn': hardkeyEvent, 'term': 'nl'},
-         'volumeup': {'fn': hardkeyEvent, 'term': 'nl'},
-         'rtn': {'fn': hardkeyEvent, 'term': 'nl'},
-         'bas': {'fn': hardkeyEvent, 'term': 'nl'},
-         }
 
 def process(buf, display):
     while len(buf):
@@ -299,8 +326,7 @@ def process(buf, display):
                 arg = buf[skip+3:skip+3+l]
                 buf = buf[skip+3+l:]
 
-            if 'skip' in event:
-                arg = arg[event['skip']:]
+            arg = arg[event.get('skip', 0):]
 
             if 'cmdtable' in event:
                 cmdtableEvent(display, eventname, event, arg)

@@ -15,6 +15,8 @@ from Xlib import X
 from Xlib.display import Display
 from Xlib.ext.xtest import fake_input
 
+class ProtocolError(Exception):
+    pass
 
 keyEventMap = {
     "RTN": misckeysyms.XK_Return,
@@ -76,7 +78,7 @@ def x11Key(display, state, raw):
             try:
                 keysym = ord(raw)
             except TypeError:
-                raise Exception('Unknown key command {}'.format(raw))
+                raise ProtocolError('Unknown x11 key {}'.format(raw))
     else:
         keysym = raw
 
@@ -119,14 +121,14 @@ def mouseEvent(display, eventname, event, arg):
         elif bits[1] == 'r':
             xbutton = X.Button3
         else:
-            raise Exception("Unknown mouse button {}".format(bits[1]))
+            raise ProtocolError("Unknown mouse button {}".format(bits[1]))
 
         if bits[2] == 'd':
             xevent = X.ButtonPress
         elif bits[2] == 'u':
             xevent = X.ButtonRelease
         else:
-            raise Exception("Unknown mouse action {}".format(bits[2]))
+            raise ProtocolError("Unknown mouse action {}".format(bits[2]))
 
         fake_input(display, xevent, detail=xbutton)
         display.sync()
@@ -150,7 +152,7 @@ def mouseEvent(display, eventname, event, arg):
         display.sync()
 
     else:
-        raise Exception("Unknown mouse event {}".format(arg))
+        raise ProtocolError("Unknown mouse event {}".format(arg))
 
 
 def keyEvent(display, eventname, event, arg):
@@ -163,7 +165,7 @@ def keyEvent(display, eventname, event, arg):
         elif bits[1] == 'u':
             state = 'up'
         else:
-            raise Exception('Unknown keyevent state {}'.format(arg))
+            raise ProtocolError('Unknown keyevent state {}'.format(arg))
 
     else:
         raw = arg
@@ -212,7 +214,7 @@ def slideEvent(display, eventname, event, arg):
         x11Key(display, 'up', misckeysyms.XK_Alt_L)
 
     else:
-        raise Exception("Unknown slide command {}".format(arg))
+        raise ProtocolError("Unknown slide command {}".format(arg))
 
 
 def powerEvent(display, eventname, event, arg):
@@ -222,7 +224,7 @@ def powerEvent(display, eventname, event, arg):
 def cmdtableEvent(display, eventname, event, arg):
     keyseq = event['cmdtable'].get(arg)
     if keyseq is None:
-        raise Exception("Unknown command: {}/{}".format(event, arg))
+        raise ProtocolError("Unknown cmdtable command: {}/{}".format(event, arg))
 
     for k in keyseq:
         x11Key(display, 'down', k)
@@ -338,7 +340,7 @@ def process(buf, display):
             # if there's more than 20 chars, its probably an unknown command. Log it. Otherwise, its likely a
             # partial buffer, so leave the buf alone to be prepended onto the next processing loop.
             if len(buf) > 20:
-                print("Unknown command {}".format(buf))
+                raise ProtocolError("Unknown command {}".format(buf))
                 buf = ''
             break
 
@@ -369,6 +371,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             except Xlib.error.ConnectionClosedError:
                 # ok, just ignore these -- X closed underneath us, so just keep going until it reappears
                 display = None
+
+            except ProtocolError, ex:
+                print ex
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):

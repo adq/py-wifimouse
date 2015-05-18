@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import socket
+import subprocess
 import os
 import threading
 import SocketServer
@@ -15,8 +16,13 @@ from Xlib import X
 from Xlib.display import Display
 from Xlib.ext.xtest import fake_input
 
+
 class ProtocolError(Exception):
     pass
+
+def runcommand(cmd):
+    o = open('/dev/null', 'w')
+    return subprocess.call(cmd, stdout=o)
 
 keyEventMap = {
     "RTN": misckeysyms.XK_Return,
@@ -236,22 +242,48 @@ def hardkeyEvent(display, eventname, event, arg):
     x11Key(display, 'downup', eventname.upper())
 
 
-browserCommands = {
-    'forward': [misckeysyms.XK_Alt_L, misckeysyms.XK_Right],
-    'back': [misckeysyms.XK_Alt_L, misckeysyms.XK_Left],
-    'home': [misckeysyms.XK_Alt_L, misckeysyms.XK_Home],
-    'search': [misckeysyms.XK_Control_L, 'k'],
-    'refresh': [misckeysyms.XK_Control_L, 'r'],
-    'stop': [misckeysyms.XK_Escape],
-    'favorite': [misckeysyms.XK_Control_L, 'b'],
-    'newtab': [misckeysyms.XK_Control_L, 't'],
-}
+def windowEvent(display, eventname, event, arg):
+    if arg == 'minimize':
+        pass
 
-windowCommands = {
-    'minimize': [],  # FIXME
-    'maximize': [],  # FIXME
-    'close': [],  # FIXME
-}
+    elif arg == 'maximize':
+        pass
+
+    elif arg == 'close':
+        pass
+
+    else:
+        raise ProtocolError("Unknown window command {}".format(arg))
+
+
+def browserEvent(display, eventname, event, arg):
+    if arg == 'forward':
+        pass
+
+    elif arg == 'back':
+        pass
+
+    elif arg == 'home':
+        pass
+
+    elif arg == 'search':
+        pass
+
+    elif arg == 'refresh':
+        pass
+
+    elif arg == 'stop':
+        runcommand(['pkill', '-9', 'pluginloader'])
+
+    elif arg == 'favorite':
+        pass
+
+    elif arg == 'newtab':
+        pass
+
+    else:
+        raise ProtocolError("Unknown browser command {}".format(arg))
+
 
 pptCommands = {
     'pgup': [],  # FIXME
@@ -285,8 +317,8 @@ events = {
 
     'media': {'cmdtable': mediaCommands, 'skip': 1, 'term': 'nl'},
     'zoom': {'cmdtable': zoomCommands, 'term': 'nl'},
-    'browser': {'cmdtable': browserCommands, 'skip': 1, 'term': 'nl'},
-    'window': {'cmdtable': windowCommands, 'skip': 1, 'term': 'nl'},
+    'browser': {'fn': browserEvent, 'skip': 1, 'term': 'nl'},
+    'window': {'fn': windowEvent, 'skip': 1, 'term': 'nl'},
     'ppt': {'cmdtable': pptCommands, 'skip': 1, 'term': 'nl'},
 
     'logoff': {'fn': powerEvent, 'term': 'nl'},

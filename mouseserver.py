@@ -120,6 +120,36 @@ def mouseEvent(display, eventname, event, arg):
         raise Exception("Unknown mouse event {}".format(arg))
 
 
+def x11Key(display, state, raw):
+    keysym = keyEventMap.get(raw)
+    if keysym is None:
+        try:
+            keysym = ord(raw)
+        except TypeError:
+            raise Exception('Unknown key command {}'.format(raw))
+
+    keycodes = display.keysym_to_keycodes(keysym)
+    if len(keycodes) == 0:
+        return
+    keycode = keycodes[0]
+
+    if 'down' in state:
+        if keycode[1] == 1:  # ie this keycode is in modmap group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
+            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
+
+        fake_input(display, X.KeyPress, detail=keycode[0])
+        display.sync()
+
+    if 'up' in state:
+        fake_input(display, X.KeyRelease, detail=keycode[0])
+        display.sync()
+
+        if keycode[1] == 1:
+            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
+            display.sync()
+
+
 def keyEvent(display, eventname, event, arg):
     if arg.startswith('[R]'):
         bits = arg[4:].split(' ')
@@ -136,29 +166,7 @@ def keyEvent(display, eventname, event, arg):
         raw = arg
         state = 'downup'
 
-    keysym = keyEventMap.get(raw)
-    if keysym is None:
-        keysym = ord(raw)
-    keycodes = display.keysym_to_keycodes(keysym)
-    if len(keycodes) == 0:
-        return
-    keycode = keycodes[0][0]
-
-    if 'down' in state:
-        if keycodes[0][1] == 1:  # ie this keycode is in group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
-            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
-
-        fake_input(display, X.KeyPress, detail=keycode)
-        display.sync()
-
-    if 'up' in state:
-        fake_input(display, X.KeyRelease, detail=keycode)
-        display.sync()
-
-        if keycodes[0][1] == 1:
-            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
+    x11Key(display, state, raw)
 
 
 def dragEvent(display, eventname, event, arg):
@@ -174,24 +182,7 @@ def dragEvent(display, eventname, event, arg):
 def utf8Event(display, eventname, event, arg):
     arg = arg.decode('utf-8')
     for k in arg:
-        keycodes = display.keysym_to_keycodes(ord(k))
-        if len(keycodes) == 0:
-            continue
-
-        keycode = keycodes[0][0]
-        if keycodes[0][1] == 1:  # ie this keycode is in group 2, which means shift needs to be pressed... yuck, X keyboard sucks!
-            fake_input(display, X.KeyPress, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
-
-        fake_input(display, X.KeyPress, detail=keycode)
-        display.sync()
-
-        fake_input(display, X.KeyRelease, detail=keycode)
-        display.sync()
-
-        if keycodes[0][1] == 1:
-            fake_input(display, X.KeyRelease, detail=display.keysym_to_keycode(misckeysyms.XK_Shift_L))
-            display.sync()
+        x11Key(display, 'downup', k)
 
 
 def powerEvent(display, eventname, event, arg):
@@ -207,11 +198,7 @@ def cmdtableEvent(display, eventname, event, arg):
 
 
 def hardkeyEvent(display, eventname, event, arg):
-    keys = keyEventMap.get(eventname.upper())
-    if keys is None:
-        print("Unknown command: {}".format(eventname))
-    else:
-        print("Hardkey Command: {}".format(eventname))
+    x11Key(display, 'downup', eventname.upper())
 
 
 browserCommands = {
